@@ -1,0 +1,18 @@
+{
+  "title": "Create",
+  "actions": {
+    "submit": "Save",
+    "cancel": "Cancel"
+  },
+  "inputs": {
+    "description": {
+      "label": "Description",
+      "validation": {
+        "required": "Description is required"
+      }
+    }
+  },
+  "alerts": {
+    "success": "test has been created successfully"
+  }
+}
