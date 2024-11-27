@@ -1,7 +1,6 @@
 "use client";
 
 import TableComponents from "@/components/table/table-components";
-import { RoleEnum } from "@/services/api/types/role";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
 import {
   Button,
@@ -18,6 +17,7 @@ type TableItem = { value: string };
 const tableData: TableItem[] = [
   { value: "lectures" },
   { value: "assignments" },
+  { value: "quizzes" },
 ];
 
 function Actions({
@@ -74,4 +74,4 @@ function CourseDetails() {
   );
 }
 
-export default withPageRequiredAuth(CourseDetails, { roles: [RoleEnum.ADMIN] });
+export default withPageRequiredAuth(CourseDetails);

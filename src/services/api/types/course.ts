@@ -8,4 +8,5 @@ export type Course = {
   coursePrice?: number;
   courseCreator?: User;
   courseLecture?: [Lecture];
+  hasEnrolled?: boolean;
 };

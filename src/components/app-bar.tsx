@@ -67,7 +67,7 @@ function ResponsiveAppBar() {
               textDecoration: "none",
             }}
           >
-            {t("common:app-name")}
+            {"E_LEARNING"}
           </Typography>
 
           <Box sx={{ flexGrow: 1, display: { xs: "flex", md: "none" } }}>
@@ -115,16 +115,6 @@ function ResponsiveAppBar() {
                   >
                     <Typography textAlign="center">
                       {t("common:navigation.users")}
-                    </Typography>
-                  </MenuItem>,
-                  <MenuItem
-                    key="tests"
-                    onClick={handleCloseNavMenu}
-                    component={Link}
-                    href="/admin-panel/tests"
-                  >
-                    <Typography textAlign="center">
-                      {t("common:navigation.tests")}
                     </Typography>
                   </MenuItem>,
                   // mobile-menu-items
@@ -186,30 +176,24 @@ function ResponsiveAppBar() {
             </Button>
 
             {!!user?.role &&
-              [RoleEnum.ADMIN].includes(Number(user?.role?.id)) && (
-                <>
-                  <Button
-                    onClick={handleCloseNavMenu}
-                    sx={{ my: 2, color: "white", display: "block" }}
-                    component={Link}
-                    href="/admin-panel/users"
-                  >
+              [RoleEnum.ADMIN].includes(Number(user?.role?.id)) && [
+                <MenuItem
+                  key="users"
+                  onClick={handleCloseNavMenu}
+                  component={Link}
+                  href="/admin-panel/users"
+                >
+                  <Typography textAlign="center">
                     {t("common:navigation.users")}
-                  </Button>
-                  <Button
-                    onClick={handleCloseNavMenu}
-                    sx={{ my: 2, color: "white", display: "block" }}
-                    component={Link}
-                    href="/admin-panel/tests"
-                  >
-                    {t("common:navigation.tests")}
-                  </Button>
-                  {/* desktop-menu-items */}
-                </>
-              )}
+                  </Typography>
+                </MenuItem>,
+                // mobile-menu-items
+              ]}
 
             {!!user?.role &&
-              [RoleEnum.ADMIN].includes(Number(user?.role?.id)) && (
+              [RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.USER].includes(
+                Number(user?.role?.id)
+              ) && (
                 <>
                   <Button
                     onClick={handleCloseNavMenu}
@@ -218,6 +202,22 @@ function ResponsiveAppBar() {
                     href="/courses"
                   >
                     Courses
+                  </Button>
+                </>
+              )}
+
+            {!!user?.role &&
+              [RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.USER].includes(
+                Number(user?.role?.id)
+              ) && (
+                <>
+                  <Button
+                    onClick={handleCloseNavMenu}
+                    sx={{ my: 2, color: "white", display: "block" }}
+                    component={Link}
+                    href="/courses/my-courses"
+                  >
+                    My Courses
                   </Button>
                 </>
               )}

@@ -1,16 +1,7 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useSnackbar } from "notistack";
-import {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
+import { Quiz } from "@/services/api/types/quiz";
+import styled from "@emotion/styled";
 import {
   Button,
   ButtonGroup,
@@ -28,34 +19,36 @@ import {
   TableSortLabel,
   Typography,
 } from "@mui/material";
-import MarkdownPreview from "@uiw/react-markdown-preview";
-import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
-import { RoleEnum } from "@/services/api/types/role";
-import { useGetAssignmentService } from "@/services/api/services/assignment";
-import { Assignment } from "@/services/api/types/assignment";
-import { AssignmentMaterial } from "@/services/api/types/assignment-material";
-import styled from "@emotion/styled";
+import React, {
+  PropsWithChildren,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { SortEnum } from "@/services/api/types/sort-type";
+import { useTranslation } from "react-i18next";
 import useAuth from "@/services/auth/use-auth";
 import useConfirmDialog from "@/components/confirm-dialog/use-confirm-dialog";
 import { InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import {
-  AssignmentMaterialFilterType,
-  AssignmentMaterialSortType,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/assignment-material-filter-type";
+  QuizFilterTypes,
+  QuizSortType,
+} from "@/app/[language]/courses/[course_id]/quizzes/quiz-filter-types";
 import {
-  assignmentMaterialsQueryKeys,
-  useAssignmentMaterialListQuery,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/queries/assignment-material-queries";
+  quizzesQueryKey,
+  useQuizListQuery,
+} from "@/app/[language]/courses/[course_id]/quizzes/queries/quiz-queries";
+import Link from "@/components/link";
 import { ArrowDropDownIcon } from "@mui/x-date-pickers";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
 import { TableVirtuoso } from "react-virtuoso";
 import TableComponents from "@/components/table/table-components";
-import { STORAGE_URL } from "@/services/api/config";
-import Link from "@/components/link";
+import { RoleEnum } from "@/services/api/types/role";
+import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
 
-type AssignmentMaterialsKeys = keyof AssignmentMaterial;
+type QuizzesKeys = keyof Quiz;
 
 const TableCellLoadingContainer = styled(TableCell)(() => ({
   padding: 0,
@@ -64,12 +57,12 @@ const TableCellLoadingContainer = styled(TableCell)(() => ({
 function TableSortCellWrapper(
   props: PropsWithChildren<{
     width?: number;
-    orderBy: AssignmentMaterialsKeys;
+    orderBy: QuizzesKeys;
     order: SortEnum;
-    column: AssignmentMaterialsKeys;
+    column: QuizzesKeys;
     handleRequestSort: (
       event: React.MouseEvent<unknown>,
-      property: AssignmentMaterialsKeys
+      property: QuizzesKeys
     ) => void;
   }>
 ) {
@@ -89,18 +82,13 @@ function TableSortCellWrapper(
   );
 }
 
-function Actions({
-  assignmentMaterial,
-}: {
-  assignmentMaterial: AssignmentMaterial;
-}) {
+function Actions({ courseId, quiz }: { courseId: string; quiz: Quiz }) {
   const [open, setOpen] = useState(false);
   const { user: authUser } = useAuth();
   const { confirmDialog } = useConfirmDialog();
   const queryClient = useQueryClient();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const canDelete =
-    assignmentMaterial?.assignment?.course?.courseCreator?.id !== authUser?.id;
+  const canDelete = quiz?.course?.courseCreator?.id !== authUser?.id;
   const { t: tUsers } = useTranslation("admin-panel-users");
 
   const handleToggle = () => {
@@ -131,8 +119,8 @@ function Actions({
       const searchParamsFilter = searchParams.get("filter");
       const searchParamsSort = searchParams.get("sort");
 
-      let filter: AssignmentMaterialFilterType | undefined = undefined;
-      let sort: AssignmentMaterialSortType | undefined = {
+      let filter: QuizFilterTypes | undefined = undefined;
+      let sort: QuizSortType | undefined = {
         order: SortEnum.DESC,
         orderBy: "id",
       };
@@ -146,23 +134,23 @@ function Actions({
       }
 
       const previousData = queryClient.getQueryData<
-        InfiniteData<{ nextPage: number; data: AssignmentMaterial[] }>
-      >(assignmentMaterialsQueryKeys.list().sub.by({ sort, filter }).key);
+        InfiniteData<{ nextPage: number; data: Quiz[] }>
+      >(quizzesQueryKey.list().sub.by({ sort, filter }).key);
 
       await queryClient.cancelQueries({
-        queryKey: assignmentMaterialsQueryKeys.list().key,
+        queryKey: quizzesQueryKey.list().key,
       });
 
       const newData = {
         ...previousData,
         pages: previousData?.pages.map((page) => ({
           ...page,
-          data: page?.data.filter((item) => item.id !== assignmentMaterial.id),
+          data: page?.data.filter((item) => item.id !== quiz.id),
         })),
       };
 
       queryClient.setQueryData(
-        assignmentMaterialsQueryKeys.list().sub.by({ sort, filter }).key,
+        quizzesQueryKey.list().sub.by({ sort, filter }).key,
         newData
       );
 
@@ -176,9 +164,8 @@ function Actions({
     <Button
       size="small"
       variant="contained"
-      href={`${STORAGE_URL}${assignmentMaterial?.file?.path}`}
-      target="_blank"
-      rel="noopener noreferrer"
+      LinkComponent={Link}
+      href={`/courses/${courseId}/quizzes/${quiz.id}`}
     >
       View
     </Button>
@@ -253,23 +240,17 @@ function Actions({
   );
 }
 
-function AssignmentDetails() {
+function Quizzes() {
   const params = useParams();
-  const assignmentId = Array.isArray(params.assignment_id)
-    ? params.assignment_id[0]
-    : params.assignment_id;
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const courseId = Array.isArray(params.course_id)
     ? params.course_id[0]
     : params.course_id;
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const fetchAssignment = useGetAssignmentService();
-  const { enqueueSnackbar } = useSnackbar();
-  const [assignment, setAssignment] = useState<Assignment>();
-  const [status, setStatus] = useState(HTTP_CODES_ENUM.NOT_FOUND);
+
   const [{ order, orderBy }, setSort] = useState<{
     order: SortEnum;
-    orderBy: AssignmentMaterialsKeys;
+    orderBy: QuizzesKeys;
   }>(() => {
     const searchParamsSort = searchParams.get("sort");
     if (searchParamsSort) {
@@ -280,7 +261,7 @@ function AssignmentDetails() {
 
   const handleRequestSort = (
     event: React.MouseEvent<unknown>,
-    property: AssignmentMaterialsKeys
+    property: QuizzesKeys
   ) => {
     const isAsc = orderBy === property && order === SortEnum.ASC;
     const searchParams = new URLSearchParams(window.location.search);
@@ -298,11 +279,11 @@ function AssignmentDetails() {
   };
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useAssignmentMaterialListQuery({
+    useQuizListQuery({
       filter: {
-        assignments: [
+        courses: [
           {
-            id: assignmentId,
+            id: courseId,
           },
         ],
       },
@@ -316,46 +297,17 @@ function AssignmentDetails() {
 
   const result = useMemo(() => {
     const result =
-      (data?.pages.flatMap((page) => page?.data) as AssignmentMaterial[]) ??
-      ([] as AssignmentMaterial[]);
+      (data?.pages.flatMap((page) => page?.data) as Quiz[]) ?? ([] as Quiz[]);
 
     return removeDuplicatesFromArrayObjects(result, "id");
   }, [data]);
 
-  const getAssignmentData = useCallback(async () => {
-    try {
-      const response = await fetchAssignment({ id: assignmentId });
-      if (response.status === HTTP_CODES_ENUM.OK) {
-        setAssignment(response.data);
-        setStatus(response.status);
-      }
-    } catch (error) {
-      enqueueSnackbar("Failed to fetch assignment details", {
-        variant: "error",
-      });
-      setStatus(HTTP_CODES_ENUM.SERVICE_UNAVAILABLE);
-    }
-  }, [assignmentId, fetchAssignment, enqueueSnackbar]);
-
-  useEffect(() => {
-    getAssignmentData().then();
-  }, [getAssignmentData]);
-
   return (
-    <Container maxWidth="lg">
-      <Grid container direction="column" spacing={3} mt={2} mb={2}>
-        <Grid item xs={12}>
-          <Typography variant="h3">Assignment Details</Typography>
-          <Typography variant="h3">{assignment?.name}</Typography>
-        </Grid>
-        <Grid item xs={12} mb={5}>
-          <div data-color-mode="light">
-            <MarkdownPreview source={assignment?.description} />
-          </div>
-        </Grid>
+    <Container maxWidth="md">
+      <Grid container spacing={3} pt={3}>
         <Grid container item spacing={3} xs={12}>
           <Grid item xs>
-            <Typography variant="h5">ASSIGNMENT MATERIAL</Typography>
+            <Typography variant="h3">Assignments</Typography>
           </Grid>
           <Grid container item xs="auto" wrap="nowrap" spacing={2}>
             {/* <Grid item xs="auto"> */}
@@ -365,39 +317,15 @@ function AssignmentDetails() {
               <Button
                 variant="contained"
                 LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/list-submission`}
+                href={`/courses/${courseId}/assignments/create`}
                 color="success"
               >
-                LIST SUBMISSIONS
-              </Button>
-            </Grid>
-          </Grid>
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/create`}
-                color="success"
-              >
-                CREATE ASSIGNMENT MATERIAL
-              </Button>
-            </Grid>
-          </Grid>
-
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/create-submission`}
-                color="success"
-              >
-                CREATE ASSIGNMENT SUBMISSION
+                CREATE ASSIGNMENT
               </Button>
             </Grid>
           </Grid>
         </Grid>
+
         <Grid item xs={12} mb={2}>
           <TableVirtuoso
             style={{ height: 500 }}
@@ -408,17 +336,16 @@ function AssignmentDetails() {
             fixedHeaderContent={() => (
               <>
                 <TableRow>
-                  <TableCell style={{ width: 50 }}>Name</TableCell>
                   <TableSortCellWrapper
                     width={100}
                     orderBy={orderBy}
                     order={order}
-                    column="id"
+                    column="title"
                     handleRequestSort={handleRequestSort}
                   >
-                    Type
+                    Name
                   </TableSortCellWrapper>
-                  <TableCell style={{ width: 200 }}></TableCell>
+                  <TableCell style={{ width: 130 }}></TableCell>
                 </TableRow>
                 {isFetchingNextPage && (
                   <TableRow>
@@ -429,18 +356,11 @@ function AssignmentDetails() {
                 )}
               </>
             )}
-            itemContent={(index, assignmentMaterial) => (
+            itemContent={(index, quizz) => (
               <>
-                <TableCell style={{ width: 200 }}>
-                  {assignmentMaterial?.name}
-                </TableCell>
-                <TableCell>
-                  {assignmentMaterial?.file?.path
-                    ? assignmentMaterial.file.path.split(".").pop()
-                    : "N/A"}
-                </TableCell>
+                <TableCell style={{ width: 50 }}>{quizz?.title}</TableCell>
                 <TableCell style={{ width: 130 }}>
-                  <Actions assignmentMaterial={assignmentMaterial} />
+                  <Actions courseId={courseId} quiz={quizz} />
                 </TableCell>
               </>
             )}
@@ -451,6 +371,4 @@ function AssignmentDetails() {
   );
 }
 
-export default withPageRequiredAuth(AssignmentDetails, {
-  roles: [RoleEnum.ADMIN],
-});
+export default withPageRequiredAuth(Quizzes, { roles: [RoleEnum.ADMIN] });

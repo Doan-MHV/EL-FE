@@ -25,7 +25,6 @@ import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicat
 import TableComponents from "@/components/table/table-components";
 import { TableVirtuoso } from "react-virtuoso";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
-import { RoleEnum } from "@/services/api/types/role";
 import styled from "@emotion/styled";
 import {
   Button,
@@ -376,4 +375,4 @@ function Courses() {
   );
 }
 
-export default withPageRequiredAuth(Courses, { roles: [RoleEnum.ADMIN] });
+export default withPageRequiredAuth(Courses);

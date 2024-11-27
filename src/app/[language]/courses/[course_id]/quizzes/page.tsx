@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import Createtest from "./page-content";
 import { getServerTranslation } from "@/services/i18n";
+import Quizzes from "./page-content";
 
 type Props = {
   params: { language: string };
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { t } = await getServerTranslation(
-    params.language,
-    "admin-panel-tests-create"
-  );
+  const { t } = await getServerTranslation(params.language, "Lectures");
 
   return {
-    title: t("title"),
+    title: "Quizzes",
   };
 }
 
-export default Createtest;
+export default Quizzes;

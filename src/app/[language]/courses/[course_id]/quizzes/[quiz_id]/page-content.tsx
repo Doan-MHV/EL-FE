@@ -1,16 +1,7 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useSnackbar } from "notistack";
-import {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
+import { QuizQuestion } from "@/services/api/types/quiz-question";
+import styled from "@emotion/styled";
 import {
   Button,
   ButtonGroup,
@@ -18,44 +9,52 @@ import {
   Container,
   Grid,
   Grow,
-  LinearProgress,
   MenuItem,
   MenuList,
   Paper,
   Popper,
   TableCell,
-  TableRow,
   TableSortLabel,
   Typography,
 } from "@mui/material";
-import MarkdownPreview from "@uiw/react-markdown-preview";
-import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
-import { RoleEnum } from "@/services/api/types/role";
-import { useGetAssignmentService } from "@/services/api/services/assignment";
-import { Assignment } from "@/services/api/types/assignment";
-import { AssignmentMaterial } from "@/services/api/types/assignment-material";
-import styled from "@emotion/styled";
+import React, {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { SortEnum } from "@/services/api/types/sort-type";
 import useAuth from "@/services/auth/use-auth";
 import useConfirmDialog from "@/components/confirm-dialog/use-confirm-dialog";
 import { InfiniteData, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Quiz } from "@/services/api/types/quiz";
 import {
-  AssignmentMaterialFilterType,
-  AssignmentMaterialSortType,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/assignment-material-filter-type";
+  QuizQuestionFilterType,
+  QuizQuestionSortType,
+} from "@/app/[language]/courses/[course_id]/quizzes/[quiz_id]/quiz-question-filter-type";
 import {
-  assignmentMaterialsQueryKeys,
-  useAssignmentMaterialListQuery,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/queries/assignment-material-queries";
-import { ArrowDropDownIcon } from "@mui/x-date-pickers";
-import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
-import { TableVirtuoso } from "react-virtuoso";
-import TableComponents from "@/components/table/table-components";
-import { STORAGE_URL } from "@/services/api/config";
+  quizQuestionsQueryKeys,
+  useQuizQuestionListQuery,
+} from "@/app/[language]/courses/[course_id]/quizzes/[quiz_id]/queries/quiz-queston-queries";
 import Link from "@/components/link";
+import { ArrowDropDownIcon } from "@mui/x-date-pickers";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useGetQuizService } from "@/services/api/services/quiz";
+import { useSnackbar } from "notistack";
+import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
+import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
+import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
+import { RoleEnum } from "@/services/api/types/role";
+import MultipleChoiceQuestion from "@/components/multiple-choice-question";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 
-type AssignmentMaterialsKeys = keyof AssignmentMaterial;
+type QuizQuestionsKeys = keyof QuizQuestion;
 
 const TableCellLoadingContainer = styled(TableCell)(() => ({
   padding: 0,
@@ -64,12 +63,12 @@ const TableCellLoadingContainer = styled(TableCell)(() => ({
 function TableSortCellWrapper(
   props: PropsWithChildren<{
     width?: number;
-    orderBy: AssignmentMaterialsKeys;
+    orderBy: QuizQuestionsKeys;
     order: SortEnum;
-    column: AssignmentMaterialsKeys;
+    column: QuizQuestionsKeys;
     handleRequestSort: (
       event: React.MouseEvent<unknown>,
-      property: AssignmentMaterialsKeys
+      property: QuizQuestionsKeys
     ) => void;
   }>
 ) {
@@ -90,17 +89,18 @@ function TableSortCellWrapper(
 }
 
 function Actions({
-  assignmentMaterial,
+  quizQuestion,
+  quiz,
 }: {
-  assignmentMaterial: AssignmentMaterial;
+  quizQuestion?: QuizQuestion;
+  quiz?: Quiz;
 }) {
   const [open, setOpen] = useState(false);
   const { user: authUser } = useAuth();
   const { confirmDialog } = useConfirmDialog();
   const queryClient = useQueryClient();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const canDelete =
-    assignmentMaterial?.assignment?.course?.courseCreator?.id !== authUser?.id;
+  const canDelete = quiz?.course?.courseCreator?.id !== authUser?.id;
   const { t: tUsers } = useTranslation("admin-panel-users");
 
   const handleToggle = () => {
@@ -131,8 +131,8 @@ function Actions({
       const searchParamsFilter = searchParams.get("filter");
       const searchParamsSort = searchParams.get("sort");
 
-      let filter: AssignmentMaterialFilterType | undefined = undefined;
-      let sort: AssignmentMaterialSortType | undefined = {
+      let filter: QuizQuestionFilterType | undefined = undefined;
+      let sort: QuizQuestionSortType | undefined = {
         order: SortEnum.DESC,
         orderBy: "id",
       };
@@ -146,23 +146,23 @@ function Actions({
       }
 
       const previousData = queryClient.getQueryData<
-        InfiniteData<{ nextPage: number; data: AssignmentMaterial[] }>
-      >(assignmentMaterialsQueryKeys.list().sub.by({ sort, filter }).key);
+        InfiniteData<{ nextPage: number; data: QuizQuestion[] }>
+      >(quizQuestionsQueryKeys.list().sub.by({ sort, filter }).key);
 
       await queryClient.cancelQueries({
-        queryKey: assignmentMaterialsQueryKeys.list().key,
+        queryKey: quizQuestionsQueryKeys.list().key,
       });
 
       const newData = {
         ...previousData,
         pages: previousData?.pages.map((page) => ({
           ...page,
-          data: page?.data.filter((item) => item.id !== assignmentMaterial.id),
+          data: page?.data.filter((item) => item.id !== quizQuestion?.id),
         })),
       };
 
       queryClient.setQueryData(
-        assignmentMaterialsQueryKeys.list().sub.by({ sort, filter }).key,
+        quizQuestionsQueryKeys.list().sub.by({ sort, filter }).key,
         newData
       );
 
@@ -173,13 +173,7 @@ function Actions({
   };
 
   const mainButton = (
-    <Button
-      size="small"
-      variant="contained"
-      href={`${STORAGE_URL}${assignmentMaterial?.file?.path}`}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
+    <Button size="small" variant="contained" LinkComponent={Link} href={``}>
       View
     </Button>
   );
@@ -253,23 +247,25 @@ function Actions({
   );
 }
 
-function AssignmentDetails() {
+function QuizDetails() {
   const params = useParams();
-  const assignmentId = Array.isArray(params.assignment_id)
-    ? params.assignment_id[0]
-    : params.assignment_id;
+  const quizId = Array.isArray(params.quiz_id)
+    ? params.quiz_id[0]
+    : params.quiz_id;
   const courseId = Array.isArray(params.course_id)
     ? params.course_id[0]
     : params.course_id;
   const searchParams = useSearchParams();
   const router = useRouter();
-  const fetchAssignment = useGetAssignmentService();
+  const fetchQuiz = useGetQuizService();
   const { enqueueSnackbar } = useSnackbar();
-  const [assignment, setAssignment] = useState<Assignment>();
+  const [quiz, setQuiz] = useState<Quiz>();
+  const [correctAnswers, setCorrectAnswers] = useState<number | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
   const [status, setStatus] = useState(HTTP_CODES_ENUM.NOT_FOUND);
   const [{ order, orderBy }, setSort] = useState<{
     order: SortEnum;
-    orderBy: AssignmentMaterialsKeys;
+    orderBy: QuizQuestionsKeys;
   }>(() => {
     const searchParamsSort = searchParams.get("sort");
     if (searchParamsSort) {
@@ -280,7 +276,7 @@ function AssignmentDetails() {
 
   const handleRequestSort = (
     event: React.MouseEvent<unknown>,
-    property: AssignmentMaterialsKeys
+    property: QuizQuestionsKeys
   ) => {
     const isAsc = orderBy === property && order === SortEnum.ASC;
     const searchParams = new URLSearchParams(window.location.search);
@@ -298,35 +294,31 @@ function AssignmentDetails() {
   };
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useAssignmentMaterialListQuery({
+    useQuizQuestionListQuery({
       filter: {
-        assignments: [
-          {
-            id: assignmentId,
-          },
-        ],
+        quizzes: [quizId],
       },
       sort: { order, orderBy },
     });
 
-  const handleScroll = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // const handleScroll = useCallback(() => {
+  //   if (!hasNextPage || isFetchingNextPage) return;
+  //   fetchNextPage();
+  // }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const result = useMemo(() => {
     const result =
-      (data?.pages.flatMap((page) => page?.data) as AssignmentMaterial[]) ??
-      ([] as AssignmentMaterial[]);
+      (data?.pages.flatMap((page) => page?.data) as QuizQuestion[]) ??
+      ([] as QuizQuestion[]);
 
     return removeDuplicatesFromArrayObjects(result, "id");
   }, [data]);
 
-  const getAssignmentData = useCallback(async () => {
+  const getQuizData = useCallback(async () => {
     try {
-      const response = await fetchAssignment({ id: assignmentId });
+      const response = await fetchQuiz({ id: quizId });
       if (response.status === HTTP_CODES_ENUM.OK) {
-        setAssignment(response.data);
+        setQuiz(response.data);
         setStatus(response.status);
       }
     } catch (error) {
@@ -335,122 +327,105 @@ function AssignmentDetails() {
       });
       setStatus(HTTP_CODES_ENUM.SERVICE_UNAVAILABLE);
     }
-  }, [assignmentId, fetchAssignment, enqueueSnackbar]);
+  }, [quizId, fetchQuiz, enqueueSnackbar]);
 
   useEffect(() => {
-    getAssignmentData().then();
-  }, [getAssignmentData]);
+    getQuizData().then();
+  }, [getQuizData]);
+
+  const handleQuizSubmit = (correctAnswersCount: number) => {
+    console.log(correctAnswersCount);
+    setCorrectAnswers(correctAnswersCount);
+    setOpenDialog(true);
+  };
+
+  const handleDialogClose = () => {
+    setOpenDialog(false);
+  };
 
   return (
     <Container maxWidth="lg">
       <Grid container direction="column" spacing={3} mt={2} mb={2}>
         <Grid item xs={12}>
-          <Typography variant="h3">Assignment Details</Typography>
-          <Typography variant="h3">{assignment?.name}</Typography>
+          <Typography variant="h3">Quiz Details</Typography>
+          <Typography variant="h3">{quiz?.title}</Typography>
         </Grid>
-        <Grid item xs={12} mb={5}>
-          <div data-color-mode="light">
-            <MarkdownPreview source={assignment?.description} />
-          </div>
-        </Grid>
+        {/*<Grid item xs={12} mb={5}>*/}
+        {/*  <div data-color-mode="light">*/}
+        {/*    <MarkdownPreview source={assignment?.description} />*/}
+        {/*  </div>*/}
+        {/*</Grid>*/}
         <Grid container item spacing={3} xs={12}>
           <Grid item xs>
-            <Typography variant="h5">ASSIGNMENT MATERIAL</Typography>
-          </Grid>
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            {/* <Grid item xs="auto"> */}
-            {/*   <CourseFilter /> */}
-            {/* </Grid> */}
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/list-submission`}
-                color="success"
-              >
-                LIST SUBMISSIONS
-              </Button>
-            </Grid>
-          </Grid>
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/create`}
-                color="success"
-              >
-                CREATE ASSIGNMENT MATERIAL
-              </Button>
-            </Grid>
+            <Typography variant="h5">Quiz Questions</Typography>
           </Grid>
 
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/${assignmentId}/create-submission`}
-                color="success"
-              >
-                CREATE ASSIGNMENT SUBMISSION
-              </Button>
-            </Grid>
-          </Grid>
+          {/*<Grid container item xs="auto" wrap="nowrap" spacing={2}>*/}
+          {/*  <Grid item xs="auto">*/}
+          {/*    <Button*/}
+          {/*      variant="contained"*/}
+          {/*      LinkComponent={Link}*/}
+          {/*      href={`/courses/${courseId}/assignments/${assignmentId}/create`}*/}
+          {/*      color="success"*/}
+          {/*    >*/}
+          {/*      CREATE ASSIGNMENT MATERIAL*/}
+          {/*    </Button>*/}
+          {/*  </Grid>*/}
+          {/*</Grid>*/}
         </Grid>
-        <Grid item xs={12} mb={2}>
-          <TableVirtuoso
-            style={{ height: 500 }}
-            data={result}
-            components={TableComponents}
-            endReached={handleScroll}
-            overscan={20}
-            fixedHeaderContent={() => (
-              <>
-                <TableRow>
-                  <TableCell style={{ width: 50 }}>Name</TableCell>
-                  <TableSortCellWrapper
-                    width={100}
-                    orderBy={orderBy}
-                    order={order}
-                    column="id"
-                    handleRequestSort={handleRequestSort}
-                  >
-                    Type
-                  </TableSortCellWrapper>
-                  <TableCell style={{ width: 200 }}></TableCell>
-                </TableRow>
-                {isFetchingNextPage && (
-                  <TableRow>
-                    <TableCellLoadingContainer colSpan={6}>
-                      <LinearProgress />
-                    </TableCellLoadingContainer>
-                  </TableRow>
-                )}
-              </>
-            )}
-            itemContent={(index, assignmentMaterial) => (
-              <>
-                <TableCell style={{ width: 200 }}>
-                  {assignmentMaterial?.name}
-                </TableCell>
-                <TableCell>
-                  {assignmentMaterial?.file?.path
-                    ? assignmentMaterial.file.path.split(".").pop()
-                    : "N/A"}
-                </TableCell>
-                <TableCell style={{ width: 130 }}>
-                  <Actions assignmentMaterial={assignmentMaterial} />
-                </TableCell>
-              </>
-            )}
+
+        <Grid item xs>
+          <MultipleChoiceQuestion
+            questions={result}
+            onSubmit={handleQuizSubmit}
           />
         </Grid>
       </Grid>
+
+      <Dialog open={openDialog} onClose={handleDialogClose}>
+        <DialogTitle>Quiz Result</DialogTitle>
+        <DialogContent
+          style={{
+            backgroundColor:
+              correctAnswers !== null
+                ? correctAnswers / result.length >= 0.7
+                  ? "#ccffcc" // Green
+                  : correctAnswers / result.length >= 0.5
+                    ? "#f0e68c" // Lime orange
+                    : correctAnswers / result.length >= 0.3
+                      ? "#ffe4b5" // Orange
+                      : "#ffcccc" // Red
+                : "#ffffff", // Default white if no score
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="h5" style={{ fontWeight: "bold" }}>
+            {correctAnswers !== null
+              ? `Correct answers: ${correctAnswers} out of ${result.length}`
+              : "No quiz result available"}
+          </Typography>
+          <Typography variant="body1" style={{ marginTop: "10px" }}>
+            {correctAnswers !== null
+              ? correctAnswers / result.length >= 0.7
+                ? "Excellent!"
+                : correctAnswers / result.length >= 0.5
+                  ? "Good job!"
+                  : correctAnswers / result.length >= 0.3
+                    ? "Needs Improvement."
+                    : "Poor performance. Try again."
+              : ""}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDialogClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
 
-export default withPageRequiredAuth(AssignmentDetails, {
+export default withPageRequiredAuth(QuizDetails, {
   roles: [RoleEnum.ADMIN],
 });

@@ -7,4 +7,8 @@ export type Lecture = {
   lectureDate?: Date;
   markdownContent?: string;
   course?: Course;
+  previousLecture?: string;
+  nextLecture?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
