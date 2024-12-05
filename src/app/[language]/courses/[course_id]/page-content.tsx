@@ -18,6 +18,7 @@ const tableData: TableItem[] = [
   { value: "lectures" },
   { value: "assignments" },
   { value: "quizzes" },
+  { value: "grades" },
 ];
 
 function Actions({

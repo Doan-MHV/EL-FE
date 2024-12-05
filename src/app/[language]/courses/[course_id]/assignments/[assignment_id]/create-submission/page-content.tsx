@@ -12,7 +12,6 @@ import useAuth from "@/services/auth/use-auth";
 import { useSnackbar } from "notistack";
 import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
 import { t } from "i18next";
-import FormTextInput from "@/components/form/text-input/form-text-input";
 import FormFileInput from "@/components/form/file_input/form-file-input";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
 
@@ -112,14 +111,14 @@ function FormCreateAssignmentSubmission() {
               <Typography variant="h6">Create Assignment Submission</Typography>
             </Grid>
 
-            <Grid item xs={12}>
-              <FormTextInput<CreateAssignmentSubmissionFormData>
-                name="status"
-                testId="new-assignment-submission-status"
-                autoComplete="new-assignment-submission-status"
-                label="Status"
-              />
-            </Grid>
+            {/*<Grid item xs={12}>*/}
+            {/*  <FormTextInput<CreateAssignmentSubmissionFormData>*/}
+            {/*    name="status"*/}
+            {/*    testId="new-assignment-submission-status"*/}
+            {/*    autoComplete="new-assignment-submission-status"*/}
+            {/*    label="Status"*/}
+            {/*  />*/}
+            {/*</Grid>*/}
             <Grid item xs={12}>
               <FormFileInput<CreateAssignmentSubmissionFormData>
                 name="file"

@@ -45,8 +45,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
 import { TableVirtuoso } from "react-virtuoso";
 import TableComponents from "@/components/table/table-components";
-import { RoleEnum } from "@/services/api/types/role";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
+import { RoleEnum } from "@/services/api/types/role";
 
 type QuizzesKeys = keyof Quiz;
 
@@ -243,6 +243,7 @@ function Actions({ courseId, quiz }: { courseId: string; quiz: Quiz }) {
 function Quizzes() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { user: authUser } = useAuth();
   const router = useRouter();
   const courseId = Array.isArray(params.course_id)
     ? params.course_id[0]
@@ -307,23 +308,28 @@ function Quizzes() {
       <Grid container spacing={3} pt={3}>
         <Grid container item spacing={3} xs={12}>
           <Grid item xs>
-            <Typography variant="h3">Assignments</Typography>
+            <Typography variant="h3">Quizzes</Typography>
           </Grid>
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            {/* <Grid item xs="auto"> */}
-            {/*   <CourseFilter /> */}
-            {/* </Grid> */}
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/create`}
-                color="success"
-              >
-                CREATE ASSIGNMENT
-              </Button>
-            </Grid>
-          </Grid>
+          {!!authUser?.role &&
+            [RoleEnum.TEACHER, RoleEnum.ADMIN].includes(
+              Number(authUser?.role?.id)
+            ) && (
+              <Grid container item xs="auto" wrap="nowrap" spacing={2}>
+                {/* <Grid item xs="auto"> */}
+                {/*   <CourseFilter /> */}
+                {/* </Grid> */}
+                <Grid item xs="auto">
+                  <Button
+                    variant="contained"
+                    LinkComponent={Link}
+                    href={`/courses/${courseId}/quizzes/create`}
+                    color="success"
+                  >
+                    CREATE QUIZ
+                  </Button>
+                </Grid>
+              </Grid>
+            )}
         </Grid>
 
         <Grid item xs={12} mb={2}>
@@ -360,7 +366,9 @@ function Quizzes() {
               <>
                 <TableCell style={{ width: 50 }}>{quizz?.title}</TableCell>
                 <TableCell style={{ width: 130 }}>
-                  <Actions courseId={courseId} quiz={quizz} />
+                  {!quizz.isTaken && (
+                    <Actions courseId={courseId} quiz={quizz} />
+                  )}
                 </TableCell>
               </>
             )}
@@ -371,4 +379,4 @@ function Quizzes() {
   );
 }
 
-export default withPageRequiredAuth(Quizzes, { roles: [RoleEnum.ADMIN] });
+export default withPageRequiredAuth(Quizzes);

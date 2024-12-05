@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import { getServerTranslation } from "@/services/i18n";
-import AssignmentSubmissionDetails from "./page-content";
+import Courses from "./page-content";
 
 type Props = {
   params: { language: string };
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { t } = await getServerTranslation(params.language, "Lectures");
+  const { t } = await getServerTranslation(
+    params.language,
+    "admin-panel-users"
+  );
 
   return {
-    title: "Submission Details",
+    title: "My Courses",
   };
 }
 
-export default AssignmentSubmissionDetails;
+export default Courses;

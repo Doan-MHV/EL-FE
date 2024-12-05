@@ -8,7 +8,7 @@ export enum UserProviderEnum {
 
 export type User = {
   id: number | string;
-  email: string;
+  email?: string;
   firstName?: string;
   lastName?: string;
   photo?: FileEntity;

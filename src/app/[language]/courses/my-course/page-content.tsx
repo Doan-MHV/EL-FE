@@ -1,7 +1,28 @@
 "use client";
 
-import { Lecture } from "@/services/api/types/lecture";
+import { Course } from "@/services/api/types/course";
+import {
+  PropsWithChildren,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { SortEnum } from "@/services/api/types/sort-type";
+import useAuth from "@/services/auth/use-auth";
+import { CourseFilterType, CourseSortType } from "../course-filter-types";
+import { coursesQueryKeys } from "../queries/courses-queries";
+import useConfirmDialog from "@/components/confirm-dialog/use-confirm-dialog";
+import { InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { ArrowDropDownIcon } from "@mui/x-date-pickers";
+import { useRouter, useSearchParams } from "next/navigation";
+import { User } from "@/services/api/types/user";
+import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
+import TableComponents from "@/components/table/table-components";
+import { TableVirtuoso } from "react-virtuoso";
+import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
+import styled from "@emotion/styled";
 import {
   Button,
   ButtonGroup,
@@ -14,39 +35,15 @@ import {
   MenuList,
   Paper,
   Popper,
-  styled,
   TableCell,
   TableRow,
   TableSortLabel,
   Typography,
 } from "@mui/material";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import {
-  PropsWithChildren,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  lecturesQueryKeys,
-  useLectureListQuery,
-} from "./queries/lecture-queries";
-import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
-import { TableVirtuoso } from "react-virtuoso";
-import TableComponents from "@/components/table/table-components";
-import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
-import useAuth from "@/services/auth/use-auth";
-import useConfirmDialog from "@/components/confirm-dialog/use-confirm-dialog";
-import { InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "@/services/i18n/client";
-import { LectureFilterType, LectureSortType } from "./lecture-filter-types";
-import Link from "@/components/link";
-import { ArrowDropDownIcon } from "@mui/x-date-pickers";
-import formatDateToMMDDYYYY from "@/services/helpers/date-converter";
-import { RoleEnum } from "@/services/api/types/role";
+import Link from "next/link";
+import { useMyCourseListQuery } from "@/app/[language]/courses/my-course/queries/my-courses-queries";
 
-type LecturesKeys = keyof Lecture;
+type CoursesKeys = keyof Course;
 
 const TableCellLoadingContainer = styled(TableCell)(() => ({
   padding: 0,
@@ -55,12 +52,12 @@ const TableCellLoadingContainer = styled(TableCell)(() => ({
 function TableSortCellWrapper(
   props: PropsWithChildren<{
     width?: number;
-    orderBy: LecturesKeys;
+    orderBy: CoursesKeys;
     order: SortEnum;
-    column: LecturesKeys;
+    column: CoursesKeys;
     handleRequestSort: (
       event: React.MouseEvent<unknown>,
-      property: LecturesKeys
+      property: CoursesKeys
     ) => void;
   }>
 ) {
@@ -80,19 +77,14 @@ function TableSortCellWrapper(
   );
 }
 
-function Actions({
-  courseId,
-  lecture,
-}: {
-  courseId: string;
-  lecture: Lecture;
-}) {
+function Actions({ course }: { course: Course }) {
   const [open, setOpen] = useState(false);
   const { user: authUser } = useAuth();
   const { confirmDialog } = useConfirmDialog();
   const queryClient = useQueryClient();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const canDelete = lecture?.course?.courseCreator?.id !== authUser?.id;
+  const canDelete = course?.courseCreator?.id === authUser?.id;
+  // const canDelete = true;
   const { t: tUsers } = useTranslation("admin-panel-users");
 
   const handleToggle = () => {
@@ -123,8 +115,8 @@ function Actions({
       const searchParamsFilter = searchParams.get("filter");
       const searchParamsSort = searchParams.get("sort");
 
-      let filter: LectureFilterType | undefined = undefined;
-      let sort: LectureSortType | undefined = {
+      let filter: CourseFilterType | undefined = undefined;
+      let sort: CourseSortType | undefined = {
         order: SortEnum.DESC,
         orderBy: "id",
       };
@@ -138,23 +130,23 @@ function Actions({
       }
 
       const previousData = queryClient.getQueryData<
-        InfiniteData<{ nextPage: number; data: Lecture[] }>
-      >(lecturesQueryKeys.list().sub.by({ sort, filter }).key);
+        InfiniteData<{ nextPage: number; data: Course[] }>
+      >(coursesQueryKeys.list().sub.by({ sort, filter }).key);
 
       await queryClient.cancelQueries({
-        queryKey: lecturesQueryKeys.list().key,
+        queryKey: coursesQueryKeys.list().key,
       });
 
       const newData = {
         ...previousData,
         pages: previousData?.pages.map((page) => ({
           ...page,
-          data: page?.data.filter((item) => item.id !== lecture.id),
+          data: page?.data.filter((item) => item.id !== course.id),
         })),
       };
 
       queryClient.setQueryData(
-        lecturesQueryKeys.list().sub.by({ sort, filter }).key,
+        coursesQueryKeys.list().sub.by({ sort, filter }).key,
         newData
       );
 
@@ -169,7 +161,7 @@ function Actions({
       size="small"
       variant="contained"
       LinkComponent={Link}
-      href={`/courses/${courseId}/lectures/${lecture.id}`}
+      href={`/courses/${course.id}`}
     >
       View
     </Button>
@@ -244,18 +236,12 @@ function Actions({
   );
 }
 
-function Lectures() {
-  const params = useParams();
+function Courses() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user: authUser } = useAuth();
-  const courseId = Array.isArray(params.course_id)
-    ? params.course_id[0]
-    : params.course_id;
-
   const [{ order, orderBy }, setSort] = useState<{
     order: SortEnum;
-    orderBy: LecturesKeys;
+    orderBy: CoursesKeys;
   }>(() => {
     const searchParamsSort = searchParams.get("sort");
     if (searchParamsSort) {
@@ -266,7 +252,7 @@ function Lectures() {
 
   const handleRequestSort = (
     event: React.MouseEvent<unknown>,
-    property: LecturesKeys
+    property: CoursesKeys
   ) => {
     const isAsc = orderBy === property && order === SortEnum.ASC;
     const searchParams = new URLSearchParams(window.location.search);
@@ -283,17 +269,17 @@ function Lectures() {
     router.push(window.location.pathname + "?" + searchParams.toString());
   };
 
+  const filter = useMemo(() => {
+    const searchParamsFilter = searchParams.get("filter");
+    if (searchParamsFilter) {
+      return JSON.parse(searchParamsFilter) as CourseFilterType;
+    }
+
+    return undefined;
+  }, [searchParams]);
+
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useLectureListQuery({
-      filter: {
-        courses: [
-          {
-            id: courseId,
-          },
-        ],
-      },
-      sort: { order, orderBy },
-    });
+    useMyCourseListQuery({ filter, sort: { order, orderBy } });
 
   const handleScroll = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage) return;
@@ -302,8 +288,7 @@ function Lectures() {
 
   const result = useMemo(() => {
     const result =
-      (data?.pages.flatMap((page) => page?.data) as Lecture[]) ??
-      ([] as Lecture[]);
+      (data?.pages.flatMap((page) => page?.data) as Course[]) ?? ([] as User[]);
 
     return removeDuplicatesFromArrayObjects(result, "id");
   }, [data]);
@@ -313,30 +298,24 @@ function Lectures() {
       <Grid container spacing={3} pt={3}>
         <Grid container item spacing={3} xs={12}>
           <Grid item xs>
-            <Typography variant="h3">Lectures</Typography>
+            <Typography variant="h3">MY COURSES</Typography>
           </Grid>
-          {!!authUser?.role &&
-            [RoleEnum.TEACHER, RoleEnum.ADMIN].includes(
-              Number(authUser?.role?.id)
-            ) && (
-              <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-                {/* <Grid item xs="auto"> */}
-                {/*   <CourseFilter /> */}
-                {/* </Grid> */}
-                <Grid item xs="auto">
-                  <Button
-                    variant="contained"
-                    LinkComponent={Link}
-                    href={`/courses/${courseId}/lectures/create`}
-                    color="success"
-                  >
-                    CREATE LECTURE
-                  </Button>
-                </Grid>
-              </Grid>
-            )}
+          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
+            {/* <Grid item xs="auto"> */}
+            {/*   <CourseFilter /> */}
+            {/* </Grid> */}
+            {/*<Grid item xs="auto">*/}
+            {/*  <Button*/}
+            {/*    variant="contained"*/}
+            {/*    LinkComponent={Link}*/}
+            {/*    href="/courses/create"*/}
+            {/*    color="success"*/}
+            {/*  >*/}
+            {/*    CREATE COURSE*/}
+            {/*  </Button>*/}
+            {/*</Grid>*/}
+          </Grid>
         </Grid>
-
         <Grid item xs={12} mb={2}>
           <TableVirtuoso
             style={{ height: 500 }}
@@ -347,18 +326,18 @@ function Lectures() {
             fixedHeaderContent={() => (
               <>
                 <TableRow>
-                  <TableCell style={{ width: 50 }}>Name</TableCell>
                   <TableSortCellWrapper
-                    width={100}
+                    width={300}
                     orderBy={orderBy}
                     order={order}
-                    column="id"
+                    column="courseName"
                     handleRequestSort={handleRequestSort}
                   >
-                    Total Time
+                    Name
                   </TableSortCellWrapper>
-                  <TableCell style={{ width: 200 }}>Start Date</TableCell>
-                  <TableCell style={{ width: 130 }}></TableCell>
+                  <TableCell style={{ width: 200 }}>Category</TableCell>
+                  <TableCell style={{ width: 100 }}>Instructor</TableCell>
+                  <TableCell style={{ width: 200 }}></TableCell>
                 </TableRow>
                 {isFetchingNextPage && (
                   <TableRow>
@@ -369,21 +348,21 @@ function Lectures() {
                 )}
               </>
             )}
-            itemContent={(index, lecture) => (
+            itemContent={(index, course) => (
               <>
-                <TableCell style={{ width: 200 }}>
-                  {lecture?.lectureName}
+                <TableCell style={{ width: 300 }}>
+                  {course?.courseName}
                 </TableCell>
                 <TableCell style={{ width: 100 }}>
-                  {lecture?.lectureTime}
+                  {course.categoryType}
                 </TableCell>
-                <TableCell>
-                  {lecture?.lectureDate
-                    ? formatDateToMMDDYYYY(lecture.lectureDate)
-                    : "N/A"}
+                <TableCell style={{ width: 200 }}>
+                  {course?.courseCreator?.firstName +
+                    " " +
+                    course?.courseCreator?.lastName}
                 </TableCell>
                 <TableCell style={{ width: 130 }}>
-                  <Actions courseId={courseId} lecture={lecture} />
+                  <Actions course={course} />
                 </TableCell>
               </>
             )}
@@ -394,4 +373,4 @@ function Lectures() {
   );
 }
 
-export default withPageRequiredAuth(Lectures);
+export default withPageRequiredAuth(Courses);

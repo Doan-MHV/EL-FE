@@ -25,6 +25,7 @@ type CreateAssignmentFormData = {
   name: string;
   description?: string;
   deadline: Date;
+  maxGrade: number;
   status?: string;
   course?: Course;
 };
@@ -33,6 +34,7 @@ const useValidationSchema = () => {
   return yup.object().shape({
     name: yup.string().required("Assignment name is required"),
     deadline: yup.date().required("Assignment deadline is required"),
+    maxGrade: yup.number().required("Assignment max grade is required"),
   });
 };
 
@@ -72,6 +74,7 @@ function FormCreateAssignment() {
       description: "",
       deadline: new Date(),
       status: "",
+      maxGrade: 0,
       course: {
         id: courseId,
       },
@@ -135,6 +138,15 @@ function FormCreateAssignment() {
                 testId="new-assignment-status"
                 autoComplete="new-assignment-status"
                 label="Assignment Status"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormTextInput<CreateAssignmentFormData>
+                name="maxGrade"
+                testId="new-assignment-max-grade"
+                autoComplete="new-assignment-max-grade"
+                label="Assignment Maximum Grade"
               />
             </Grid>
 

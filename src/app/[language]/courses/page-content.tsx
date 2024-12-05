@@ -44,6 +44,9 @@ import {
   Typography,
 } from "@mui/material";
 import Link from "next/link";
+import { usePostEnrollmentService } from "@/services/api/services/enrollment";
+import { useSnackbar } from "notistack";
+import { RoleEnum } from "@/services/api/types/role";
 
 type CoursesKeys = keyof Course;
 
@@ -79,13 +82,72 @@ function TableSortCellWrapper(
   );
 }
 
-function Actions({ course }: { course: Course }) {
-  const [open, setOpen] = useState(false);
+function ActionEnroll({ course }: { course: Course }) {
   const { user: authUser } = useAuth();
+  const canEnroll = course?.courseCreator?.id !== authUser?.id;
+  const fetchPostEnrollment = usePostEnrollmentService();
+  const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+
+  const handleEnroll = async () => {
+    if (!canEnroll || !authUser?.id) return; // Ensure the user can enroll and is authenticated
+
+    try {
+      await fetchPostEnrollment({
+        student: { id: authUser.id },
+        course: { id: course.id },
+      });
+      enqueueSnackbar("Enrollment successful!", { variant: "success" });
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const searchParamsFilter = searchParams.get("filter");
+      const searchParamsSort = searchParams.get("sort");
+
+      let filter: CourseFilterType | undefined = undefined;
+      let sort: CourseSortType | undefined = {
+        order: SortEnum.DESC,
+        orderBy: "id",
+      };
+
+      if (searchParamsFilter) {
+        filter = JSON.parse(searchParamsFilter);
+      }
+
+      if (searchParamsSort) {
+        sort = JSON.parse(searchParamsSort);
+      }
+
+      const invalidateOptions = {
+        queryKey: coursesQueryKeys.list().sub.by({ sort, filter }).key,
+      };
+
+      // Pass the constructed options object
+      await queryClient.invalidateQueries(invalidateOptions);
+    } catch (error) {
+      enqueueSnackbar("Failed to enroll. Please try again.", {
+        variant: "error",
+      });
+    }
+  };
+
+  return (
+    <Button
+      size="small"
+      variant="contained"
+      onClick={handleEnroll}
+      disabled={!canEnroll}
+    >
+      Enroll
+    </Button>
+  );
+}
+
+function Actions({ course, user }: { course: Course; user: User | null }) {
+  const [open, setOpen] = useState(false);
   const { confirmDialog } = useConfirmDialog();
   const queryClient = useQueryClient();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const canDelete = course?.courseCreator?.id === authUser?.id;
+  const canDelete = course?.courseCreator?.id === user?.id;
   // const canDelete = true;
   const { t: tUsers } = useTranslation("admin-panel-users");
 
@@ -240,6 +302,7 @@ function Actions({ course }: { course: Course }) {
 
 function Courses() {
   const searchParams = useSearchParams();
+  const { user: authUser } = useAuth();
   const router = useRouter();
   const [{ order, orderBy }, setSort] = useState<{
     order: SortEnum;
@@ -295,6 +358,8 @@ function Courses() {
     return removeDuplicatesFromArrayObjects(result, "id");
   }, [data]);
 
+  console.log(authUser);
+
   return (
     <Container maxWidth="md">
       <Grid container spacing={3} pt={3}>
@@ -306,16 +371,22 @@ function Courses() {
             {/* <Grid item xs="auto"> */}
             {/*   <CourseFilter /> */}
             {/* </Grid> */}
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href="/courses/create"
-                color="success"
-              >
-                CREATE COURSE
-              </Button>
-            </Grid>
+
+            {!!authUser?.role &&
+              [RoleEnum.TEACHER, RoleEnum.ADMIN].includes(
+                Number(authUser?.role?.id)
+              ) && (
+                <Grid item xs="auto">
+                  <Button
+                    variant="contained"
+                    LinkComponent={Link}
+                    href="/courses/create"
+                    color="success"
+                  >
+                    CREATE COURSE
+                  </Button>
+                </Grid>
+              )}
           </Grid>
         </Grid>
         <Grid item xs={12} mb={2}>
@@ -364,7 +435,16 @@ function Courses() {
                     course?.courseCreator?.lastName}
                 </TableCell>
                 <TableCell style={{ width: 130 }}>
-                  <Actions course={course} />
+                  {authUser?.id === course?.courseCreator?.id ? (
+                    <Actions course={course} user={authUser} />
+                  ) : !!authUser?.role &&
+                    [RoleEnum.USER].includes(Number(authUser?.role?.id)) ? (
+                    course.hasEnrolled ? (
+                      <Actions course={course} user={authUser} />
+                    ) : (
+                      <ActionEnroll course={course} />
+                    )
+                  ) : null}
                 </TableCell>
               </>
             )}

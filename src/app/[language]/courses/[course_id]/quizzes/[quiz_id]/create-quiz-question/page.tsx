@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import CreateQuiz from "./page-content";
+import CreateQuizQuestion from "./page-content";
 import { getServerTranslation } from "@/services/i18n";
 import { Props } from "next/script";
 
@@ -10,8 +10,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
 
   return {
-    title: "Create Quiz",
+    title: "Create Quiz Question",
   };
 }
 
-export default CreateQuiz;
+export default CreateQuizQuestion;

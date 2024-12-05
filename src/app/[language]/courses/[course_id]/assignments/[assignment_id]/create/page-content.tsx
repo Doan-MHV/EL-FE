@@ -59,12 +59,15 @@ function HandleFileChange() {
 
   useEffect(() => {
     if (file) {
-      const fileName = file.localName || "";
-      const nameParts = fileName.split(" ");
-      if (nameParts.length > 1) {
-        nameParts.pop();
+      let fileName = file.localName || "";
+
+      // Remove the file extension
+      const extensionIndex = fileName.lastIndexOf(".");
+      if (extensionIndex > 0) {
+        fileName = fileName.substring(0, extensionIndex);
       }
-      setValue("name", nameParts.join(" "));
+
+      setValue("name", fileName);
     }
   }, [file, setValue]);
 
@@ -122,7 +125,7 @@ function FormCreateAssignmentMaterial() {
       enqueueSnackbar("Create assignment material successfully", {
         variant: "success",
       });
-      router.push(`/courses/${assignmentId}/assignments/${assignmentId}`);
+      router.push(`/courses/${courseId}/assignments/${assignmentId}`);
     }
   });
 
@@ -132,7 +135,7 @@ function FormCreateAssignmentMaterial() {
         <form onSubmit={onSubmit} autoComplete="create-new-lecture">
           <Grid container spacing={2} mb={3} mt={3}>
             <Grid item xs={12}>
-              <Typography variant="h6">Create Assignment</Typography>
+              <Typography variant="h6">Create Assignment Material</Typography>
             </Grid>
 
             <HandleFileChange />

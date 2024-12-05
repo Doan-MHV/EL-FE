@@ -1,251 +1,28 @@
 "use client";
 
 import { QuizQuestion } from "@/services/api/types/quiz-question";
-import styled from "@emotion/styled";
-import {
-  Button,
-  ButtonGroup,
-  ClickAwayListener,
-  Container,
-  Grid,
-  Grow,
-  MenuItem,
-  MenuList,
-  Paper,
-  Popper,
-  TableCell,
-  TableSortLabel,
-  Typography,
-} from "@mui/material";
-import React, {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Button, Container, Grid, Typography, useTheme } from "@mui/material";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SortEnum } from "@/services/api/types/sort-type";
 import useAuth from "@/services/auth/use-auth";
-import useConfirmDialog from "@/components/confirm-dialog/use-confirm-dialog";
-import { InfiniteData, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import { Quiz } from "@/services/api/types/quiz";
-import {
-  QuizQuestionFilterType,
-  QuizQuestionSortType,
-} from "@/app/[language]/courses/[course_id]/quizzes/[quiz_id]/quiz-question-filter-type";
-import {
-  quizQuestionsQueryKeys,
-  useQuizQuestionListQuery,
-} from "@/app/[language]/courses/[course_id]/quizzes/[quiz_id]/queries/quiz-queston-queries";
+import { useQuizQuestionListQuery } from "@/app/[language]/courses/[course_id]/quizzes/[quiz_id]/queries/quiz-queston-queries";
 import Link from "@/components/link";
-import { ArrowDropDownIcon } from "@mui/x-date-pickers";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useGetQuizService } from "@/services/api/services/quiz";
 import { useSnackbar } from "notistack";
 import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
 import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
-import { RoleEnum } from "@/services/api/types/role";
 import MultipleChoiceQuestion from "@/components/multiple-choice-question";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { RoleEnum } from "@/services/api/types/role";
+import { usePostGradeService } from "@/services/api/services/grade";
 
 type QuizQuestionsKeys = keyof QuizQuestion;
-
-const TableCellLoadingContainer = styled(TableCell)(() => ({
-  padding: 0,
-}));
-
-function TableSortCellWrapper(
-  props: PropsWithChildren<{
-    width?: number;
-    orderBy: QuizQuestionsKeys;
-    order: SortEnum;
-    column: QuizQuestionsKeys;
-    handleRequestSort: (
-      event: React.MouseEvent<unknown>,
-      property: QuizQuestionsKeys
-    ) => void;
-  }>
-) {
-  return (
-    <TableCell
-      style={{ width: props.width }}
-      sortDirection={props.orderBy === props.column ? props.order : false}
-    >
-      <TableSortLabel
-        active={props.orderBy === props.column}
-        direction={props.orderBy === props.column ? props.order : SortEnum.ASC}
-        onClick={(event) => props.handleRequestSort(event, props.column)}
-      >
-        {props.children}
-      </TableSortLabel>
-    </TableCell>
-  );
-}
-
-function Actions({
-  quizQuestion,
-  quiz,
-}: {
-  quizQuestion?: QuizQuestion;
-  quiz?: Quiz;
-}) {
-  const [open, setOpen] = useState(false);
-  const { user: authUser } = useAuth();
-  const { confirmDialog } = useConfirmDialog();
-  const queryClient = useQueryClient();
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const canDelete = quiz?.course?.courseCreator?.id !== authUser?.id;
-  const { t: tUsers } = useTranslation("admin-panel-users");
-
-  const handleToggle = () => {
-    setOpen((prevOpen) => !prevOpen);
-  };
-
-  const handleClose = (event: Event) => {
-    if (
-      anchorRef.current &&
-      anchorRef.current.contains(event.target as HTMLElement)
-    ) {
-      return;
-    }
-
-    setOpen(false);
-  };
-
-  const handleDelete = async () => {
-    const isConfirmed = await confirmDialog({
-      title: tUsers("admin-panel-users:confirm.delete.title"),
-      message: tUsers("admin-panel-users:confirm.delete.message"),
-    });
-
-    if (isConfirmed) {
-      setOpen(false);
-
-      const searchParams = new URLSearchParams(window.location.search);
-      const searchParamsFilter = searchParams.get("filter");
-      const searchParamsSort = searchParams.get("sort");
-
-      let filter: QuizQuestionFilterType | undefined = undefined;
-      let sort: QuizQuestionSortType | undefined = {
-        order: SortEnum.DESC,
-        orderBy: "id",
-      };
-
-      if (searchParamsFilter) {
-        filter = JSON.parse(searchParamsFilter);
-      }
-
-      if (searchParamsSort) {
-        sort = JSON.parse(searchParamsSort);
-      }
-
-      const previousData = queryClient.getQueryData<
-        InfiniteData<{ nextPage: number; data: QuizQuestion[] }>
-      >(quizQuestionsQueryKeys.list().sub.by({ sort, filter }).key);
-
-      await queryClient.cancelQueries({
-        queryKey: quizQuestionsQueryKeys.list().key,
-      });
-
-      const newData = {
-        ...previousData,
-        pages: previousData?.pages.map((page) => ({
-          ...page,
-          data: page?.data.filter((item) => item.id !== quizQuestion?.id),
-        })),
-      };
-
-      queryClient.setQueryData(
-        quizQuestionsQueryKeys.list().sub.by({ sort, filter }).key,
-        newData
-      );
-
-      // await fetchUserDelete({
-      //   id: user.id,
-      // });
-    }
-  };
-
-  const mainButton = (
-    <Button size="small" variant="contained" LinkComponent={Link} href={``}>
-      View
-    </Button>
-  );
-
-  return (
-    <>
-      {[!canDelete].every(Boolean) ? (
-        mainButton
-      ) : (
-        <ButtonGroup
-          variant="contained"
-          ref={anchorRef}
-          aria-label="split button"
-          size="small"
-        >
-          {mainButton}
-
-          <Button
-            size="small"
-            aria-controls={open ? "split-button-menu" : undefined}
-            aria-expanded={open ? "true" : undefined}
-            aria-label="select merge strategy"
-            aria-haspopup="menu"
-            onClick={handleToggle}
-          >
-            <ArrowDropDownIcon />
-          </Button>
-        </ButtonGroup>
-      )}
-      <Popper
-        sx={{
-          zIndex: 1,
-        }}
-        open={open}
-        anchorEl={anchorRef.current}
-        role={undefined}
-        transition
-        disablePortal
-      >
-        {({ TransitionProps, placement }) => (
-          <Grow
-            {...TransitionProps}
-            style={{
-              transformOrigin:
-                placement === "bottom" ? "center top" : "center bottom",
-            }}
-          >
-            <Paper>
-              <ClickAwayListener onClickAway={handleClose}>
-                <MenuList id="split-button-menu" autoFocusItem>
-                  {canDelete && (
-                    <MenuItem
-                      sx={{
-                        bgcolor: "error.main",
-                        "&:hover": {
-                          bgcolor: "error.light",
-                        },
-                      }}
-                      onClick={handleDelete}
-                    >
-                      {tUsers("admin-panel-users:actions.delete")}
-                    </MenuItem>
-                  )}
-                </MenuList>
-              </ClickAwayListener>
-            </Paper>
-          </Grow>
-        )}
-      </Popper>
-    </>
-  );
-}
 
 function QuizDetails() {
   const params = useParams();
@@ -255,9 +32,12 @@ function QuizDetails() {
   const courseId = Array.isArray(params.course_id)
     ? params.course_id[0]
     : params.course_id;
+  const theme = useTheme();
   const searchParams = useSearchParams();
+  const { user: authUser } = useAuth();
   const router = useRouter();
   const fetchQuiz = useGetQuizService();
+  const fetchPostGrade = usePostGradeService();
   const { enqueueSnackbar } = useSnackbar();
   const [quiz, setQuiz] = useState<Quiz>();
   const [correctAnswers, setCorrectAnswers] = useState<number | null>(null);
@@ -274,32 +54,12 @@ function QuizDetails() {
     return { order: SortEnum.DESC, orderBy: "id" };
   });
 
-  const handleRequestSort = (
-    event: React.MouseEvent<unknown>,
-    property: QuizQuestionsKeys
-  ) => {
-    const isAsc = orderBy === property && order === SortEnum.ASC;
-    const searchParams = new URLSearchParams(window.location.search);
-    const newOrder = isAsc ? SortEnum.DESC : SortEnum.ASC;
-    const newOrderBy = property;
-    searchParams.set(
-      "sort",
-      JSON.stringify({ order: newOrder, orderBy: newOrderBy })
-    );
-    setSort({
-      order: newOrder,
-      orderBy: newOrderBy,
-    });
-    router.push(window.location.pathname + "?" + searchParams.toString());
-  };
-
-  const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useQuizQuestionListQuery({
-      filter: {
-        quizzes: [quizId],
-      },
-      sort: { order, orderBy },
-    });
+  const { data } = useQuizQuestionListQuery({
+    filter: {
+      quizzes: [quizId],
+    },
+    sort: { order, orderBy },
+  });
 
   // const handleScroll = useCallback(() => {
   //   if (!hasNextPage || isFetchingNextPage) return;
@@ -333,8 +93,58 @@ function QuizDetails() {
     getQuizData().then();
   }, [getQuizData]);
 
-  const handleQuizSubmit = (correctAnswersCount: number) => {
-    console.log(correctAnswersCount);
+  const getFeedbackMessage = (
+    correctAnswers: number | null,
+    totalQuestions: number
+  ): string => {
+    if (correctAnswers === null) return "";
+
+    const score = correctAnswers / totalQuestions;
+
+    if (score >= 0.7) return "Excellent!";
+    if (score >= 0.5) return "Good job!";
+    if (score >= 0.3) return "Needs Improvement.";
+
+    return "Poor performance";
+  };
+
+  const handleQuizSubmit = async (
+    correctAnswersCount: number,
+    totalQuestions: number
+  ) => {
+    setCorrectAnswers(correctAnswersCount);
+    setOpenDialog(true);
+
+    const payloadData = {
+      name: quiz?.title,
+      feedback: getFeedbackMessage(correctAnswersCount, totalQuestions),
+      grade: correctAnswersCount,
+      maxGrade: totalQuestions,
+      student: {
+        id: authUser?.id ?? "",
+      },
+      course: {
+        id: courseId,
+      },
+      quiz: {
+        id: quizId,
+      },
+    };
+
+    const { status } = await fetchPostGrade(payloadData);
+
+    if (status === HTTP_CODES_ENUM.CREATED) {
+      enqueueSnackbar("Quiz submitted successfully", {
+        variant: "success",
+      });
+    } else {
+      enqueueSnackbar("Failed to submit quiz", {
+        variant: "error",
+      });
+    }
+  };
+
+  const handleQuizTest = (correctAnswersCount: number) => {
     setCorrectAnswers(correctAnswersCount);
     setOpenDialog(true);
   };
@@ -360,64 +170,88 @@ function QuizDetails() {
             <Typography variant="h5">Quiz Questions</Typography>
           </Grid>
 
-          {/*<Grid container item xs="auto" wrap="nowrap" spacing={2}>*/}
-          {/*  <Grid item xs="auto">*/}
-          {/*    <Button*/}
-          {/*      variant="contained"*/}
-          {/*      LinkComponent={Link}*/}
-          {/*      href={`/courses/${courseId}/assignments/${assignmentId}/create`}*/}
-          {/*      color="success"*/}
-          {/*    >*/}
-          {/*      CREATE ASSIGNMENT MATERIAL*/}
-          {/*    </Button>*/}
-          {/*  </Grid>*/}
-          {/*</Grid>*/}
+          {!!authUser?.role &&
+            [RoleEnum.TEACHER, RoleEnum.ADMIN].includes(
+              Number(authUser?.role?.id)
+            ) && (
+              <Grid container item xs="auto" wrap="nowrap" spacing={2}>
+                <Grid item xs="auto">
+                  <Button
+                    variant="contained"
+                    LinkComponent={Link}
+                    href={`/courses/${courseId}/quizzes/${quizId}/create-quiz-question`}
+                    color="success"
+                  >
+                    CREATE QUIZ QUESTION
+                  </Button>
+                </Grid>
+              </Grid>
+            )}
         </Grid>
 
         <Grid item xs>
           <MultipleChoiceQuestion
             questions={result}
+            user={authUser}
             onSubmit={handleQuizSubmit}
+            onTestSubmit={handleQuizTest}
           />
         </Grid>
       </Grid>
 
       <Dialog open={openDialog} onClose={handleDialogClose}>
-        <DialogTitle>Quiz Result</DialogTitle>
-        <DialogContent
-          style={{
-            backgroundColor:
-              correctAnswers !== null
-                ? correctAnswers / result.length >= 0.7
-                  ? "#ccffcc" // Green
-                  : correctAnswers / result.length >= 0.5
-                    ? "#f0e68c" // Lime orange
-                    : correctAnswers / result.length >= 0.3
-                      ? "#ffe4b5" // Orange
-                      : "#ffcccc" // Red
-                : "#ffffff", // Default white if no score
+        <DialogTitle
+          sx={{
+            bgcolor: "primary.main",
+            color: "#fff",
             textAlign: "center",
+            fontWeight: "bold",
           }}
         >
-          <Typography variant="h5" style={{ fontWeight: "bold" }}>
+          Quiz Result
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            bgcolor:
+              correctAnswers !== null
+                ? correctAnswers / result.length >= 0.7
+                  ? "#d4edda" // Light green
+                  : correctAnswers / result.length >= 0.5
+                    ? "#fff3cd" // Light yellow
+                    : correctAnswers / result.length >= 0.3
+                      ? "#ffeeba" // Peach
+                      : "#f8d7da" // Light red
+                : "#fff", // Default white if no score
+            textAlign: "center",
+            padding: 3, // Consistent padding
+            borderRadius: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 500 }}>
             {correctAnswers !== null
               ? `Correct answers: ${correctAnswers} out of ${result.length}`
               : "No quiz result available"}
           </Typography>
-          <Typography variant="body1" style={{ marginTop: "10px" }}>
-            {correctAnswers !== null
-              ? correctAnswers / result.length >= 0.7
-                ? "Excellent!"
-                : correctAnswers / result.length >= 0.5
-                  ? "Good job!"
-                  : correctAnswers / result.length >= 0.3
-                    ? "Needs Improvement."
-                    : "Poor performance. Try again."
-              : ""}
+          <Typography variant="body2" sx={{ mt: 2, color: "text.secondary" }}>
+            {getFeedbackMessage(correctAnswers, result.length)}
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDialogClose} color="primary">
+        <DialogActions
+          sx={{
+            justifyContent: "center",
+            pb: 2,
+          }}
+        >
+          <Button
+            onClick={handleDialogClose}
+            href={`/courses/${courseId}/quizzes`}
+            sx={{
+              bgcolor: "primary.main",
+              color: "#fff",
+              "&:hover": { bgcolor: "primary.dark" },
+            }}
+            variant="contained"
+          >
             Close
           </Button>
         </DialogActions>
@@ -426,6 +260,4 @@ function QuizDetails() {
   );
 }
 
-export default withPageRequiredAuth(QuizDetails, {
-  roles: [RoleEnum.ADMIN],
-});
+export default withPageRequiredAuth(QuizDetails);

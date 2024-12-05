@@ -43,6 +43,41 @@ export function useGetCoursesService() {
   );
 }
 
+export type MyCoursesRequest = {
+  page: number;
+  limit: number;
+  filters?: {
+    courseCreators?: User[];
+  };
+  sort?: Array<{
+    orderBy: keyof Course;
+    order: SortEnum;
+  }>;
+};
+
+export type MyCoursesResponse = InfinityPaginationType<Course>;
+
+export function useGetMyCoursesService() {
+  const fetch = useFetch();
+
+  return useCallback(
+    (data: MyCoursesRequest, requestConfig?: RequestConfigType) => {
+      const requestUrl = new URL(`${API_URL}/v1/enrollments/my-courses`);
+      requestUrl.searchParams.append("page", data.page.toString());
+      requestUrl.searchParams.append("limit", data.limit.toString());
+      if (data.filters) {
+        requestUrl.searchParams.append("filters", JSON.stringify(data.filters));
+      }
+
+      return fetch(requestUrl, {
+        method: "GET",
+        ...requestConfig,
+      }).then(wrapperFetchJsonResponse<MyCoursesResponse>);
+    },
+    [fetch]
+  );
+}
+
 export type CoursePostRequest = Pick<
   Course,
   "courseName" | "categoryType" | "coursePrice" | "courseCreator"

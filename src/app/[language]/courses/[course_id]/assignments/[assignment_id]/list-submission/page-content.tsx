@@ -35,11 +35,11 @@ import { Lecture } from "@/services/api/types/lecture";
 import {
   AssignmentSubmissionFilterType,
   AssignmentSubmissionSortType,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/list-submission/assignment-submission-filter-type";
+} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/assignment-submission-filter-type";
 import {
   assignmentSubmissionsQueryKeys,
   useAssignmentSubmissionListQuery,
-} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/list-submission/queries/assignment-submission-queries";
+} from "@/app/[language]/courses/[course_id]/assignments/[assignment_id]/queries/assignment-submission-queries";
 import { ArrowDropDownIcon } from "@mui/x-date-pickers";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
@@ -379,7 +379,7 @@ function AssignmentSubmissions() {
             itemContent={(index, assignmentSubmission) => (
               <>
                 <TableCell style={{ width: 50 }}>
-                  {assignmentSubmission?.status}
+                  {assignmentSubmission?.isGraded ? "Graded" : "Not Graded"}
                 </TableCell>
                 <TableCell style={{ width: 300 }}>
                   {assignmentSubmission?.student?.firstName +
@@ -392,11 +392,13 @@ function AssignmentSubmissions() {
                     : "N/A"}
                 </TableCell>
                 <TableCell style={{ width: 130 }}>
-                  <Actions
-                    courseId={courseId}
-                    assignmentId={assignmentId}
-                    assignmentSubmission={assignmentSubmission}
-                  />
+                  {!assignmentSubmission.isGraded && (
+                    <Actions
+                      courseId={courseId}
+                      assignmentId={assignmentId}
+                      assignmentSubmission={assignmentSubmission}
+                    />
+                  )}
                 </TableCell>
               </>
             )}
@@ -408,5 +410,5 @@ function AssignmentSubmissions() {
 }
 
 export default withPageRequiredAuth(AssignmentSubmissions, {
-  roles: [RoleEnum.ADMIN],
+  roles: [RoleEnum.ADMIN, RoleEnum.TEACHER],
 });

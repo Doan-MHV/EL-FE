@@ -193,34 +193,30 @@ function ResponsiveAppBar() {
             {!!user?.role &&
               [RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.USER].includes(
                 Number(user?.role?.id)
-              ) && (
-                <>
-                  <Button
-                    onClick={handleCloseNavMenu}
-                    sx={{ my: 2, color: "white", display: "block" }}
-                    component={Link}
-                    href="/courses"
-                  >
-                    Courses
-                  </Button>
-                </>
-              )}
+              ) && [
+                <MenuItem
+                  key="courses"
+                  onClick={handleCloseNavMenu}
+                  component={Link}
+                  href="/courses"
+                >
+                  <Typography textAlign="center">Courses</Typography>
+                </MenuItem>,
+              ]}
 
             {!!user?.role &&
-              [RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.USER].includes(
+              [RoleEnum.ADMIN, RoleEnum.USER].includes(
                 Number(user?.role?.id)
-              ) && (
-                <>
-                  <Button
-                    onClick={handleCloseNavMenu}
-                    sx={{ my: 2, color: "white", display: "block" }}
-                    component={Link}
-                    href="/courses/my-courses"
-                  >
-                    My Courses
-                  </Button>
-                </>
-              )}
+              ) && [
+                <MenuItem
+                  key="my-courses"
+                  onClick={handleCloseNavMenu}
+                  component={Link}
+                  href="/courses/my-course"
+                >
+                  <Typography textAlign="center">My courses</Typography>
+                </MenuItem>,
+              ]}
           </Box>
 
           <Box

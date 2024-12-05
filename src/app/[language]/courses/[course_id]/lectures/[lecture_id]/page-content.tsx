@@ -3,7 +3,6 @@
 import { useGetLectureService } from "@/services/api/services/lecture";
 import HTTP_CODES_ENUM from "@/services/api/types/http-codes";
 import { Lecture } from "@/services/api/types/lecture";
-import { RoleEnum } from "@/services/api/types/role";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
 import { Button, Container, Grid, Typography } from "@mui/material";
 import MarkdownPreview from "@uiw/react-markdown-preview";
@@ -57,23 +56,27 @@ function LectureDetails() {
         container
         direction="column"
         spacing={2}
-        mb={2}
-        mt={3}
-        ml={8}
-        mr={8}
+        sx={{ mb: 2, mt: 3, px: 2 }}
       >
-        <Grid item xs={10} md={20}>
+        <Grid item xs={12}>
           <Typography variant="h3">Lecture Details</Typography>
           <Typography variant="h3">{lecture?.lectureName}</Typography>
         </Grid>
-        <Grid item xs={10} md={20} mb={40}>
+        <Grid item xs={12} mb={5}>
           <div data-color-mode="light">
             <MarkdownPreview source={lecture?.markdownContent} />
           </div>
         </Grid>
-        <Grid item container spacing={2} justifyContent="space-between">
-          <Grid item>
+        <Grid
+          item
+          container
+          spacing={2}
+          justifyContent="space-between"
+          wrap="wrap"
+        >
+          <Grid item xs={12} sm={6}>
             <Button
+              fullWidth
               variant="contained"
               onClick={() => handleNavigation(lecture?.previousLecture)}
               disabled={!lecture?.previousLecture}
@@ -81,8 +84,9 @@ function LectureDetails() {
               Previous Lecture
             </Button>
           </Grid>
-          <Grid item>
+          <Grid item xs={12} sm={6}>
             <Button
+              fullWidth
               variant="contained"
               onClick={() => handleNavigation(lecture?.nextLecture)}
               disabled={!lecture?.nextLecture}
@@ -96,6 +100,4 @@ function LectureDetails() {
   );
 }
 
-export default withPageRequiredAuth(LectureDetails, {
-  roles: [RoleEnum.ADMIN],
-});
+export default withPageRequiredAuth(LectureDetails);

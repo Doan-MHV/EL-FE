@@ -44,10 +44,10 @@ import { ArrowDropDownIcon } from "@mui/x-date-pickers";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import removeDuplicatesFromArrayObjects from "@/services/helpers/remove-duplicates-from-array-of-objects";
 import TableComponents from "@/components/table/table-components";
-import { RoleEnum } from "@/services/api/types/role";
 import withPageRequiredAuth from "@/services/auth/with-page-required-auth";
 import { TableVirtuoso } from "react-virtuoso";
 import formatDateToMMDDYYYY from "@/services/helpers/date-converter";
+import { RoleEnum } from "@/services/api/types/role";
 
 type AssignmentsKeys = keyof Assignment;
 
@@ -250,6 +250,7 @@ function Actions({
 function Assignments() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { user: authUser } = useAuth();
   const router = useRouter();
   const courseId = Array.isArray(params.course_id)
     ? params.course_id[0]
@@ -317,21 +318,26 @@ function Assignments() {
           <Grid item xs>
             <Typography variant="h3">Assignments</Typography>
           </Grid>
-          <Grid container item xs="auto" wrap="nowrap" spacing={2}>
-            {/* <Grid item xs="auto"> */}
-            {/*   <CourseFilter /> */}
-            {/* </Grid> */}
-            <Grid item xs="auto">
-              <Button
-                variant="contained"
-                LinkComponent={Link}
-                href={`/courses/${courseId}/assignments/create`}
-                color="success"
-              >
-                CREATE ASSIGNMENT
-              </Button>
-            </Grid>
-          </Grid>
+          {!!authUser?.role &&
+            [RoleEnum.TEACHER, RoleEnum.ADMIN].includes(
+              Number(authUser?.role?.id)
+            ) && (
+              <Grid container item xs="auto" wrap="nowrap" spacing={2}>
+                {/* <Grid item xs="auto"> */}
+                {/*   <CourseFilter /> */}
+                {/* </Grid> */}
+                <Grid item xs="auto">
+                  <Button
+                    variant="contained"
+                    LinkComponent={Link}
+                    href={`/courses/${courseId}/assignments/create`}
+                    color="success"
+                  >
+                    CREATE ASSIGNMENT
+                  </Button>
+                </Grid>
+              </Grid>
+            )}
         </Grid>
 
         <Grid item xs={12} mb={2}>
@@ -389,4 +395,4 @@ function Assignments() {
   );
 }
 
-export default withPageRequiredAuth(Assignments, { roles: [RoleEnum.ADMIN] });
+export default withPageRequiredAuth(Assignments);
